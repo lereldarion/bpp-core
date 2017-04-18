@@ -1,0 +1,110 @@
+# Inspired from doctest env
+sudo: false
+language: c++
+
+notifications:
+   email: false
+
+# To be referenced later
+addons:
+   apt:
+      sources: &sources
+           - george-edison55-precise-backports # Cmake
+           - ubuntu-toolchain-r-test # Gcc versions
+           - llvm-toolchain-precise
+           - llvm-toolchain-precise-3.5
+           - llvm-toolchain-precise-3.6
+           - llvm-toolchain-precise-3.7
+           - llvm-toolchain-precise-3.8
+           - llvm-toolchain-precise-3.9
+
+matrix:
+   include:
+      # GCC 4.8
+      - env: COMPILER=g++-4.8
+        os: linux
+        compiler: gcc
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "g++-4.8", "libc6-dbg"]
+              sources: *sources
+      # GCC 4.9
+      - env: COMPILER=g++-4.9
+        os: linux
+        compiler: gcc
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "g++-4.9", "libc6-dbg"]
+              sources: *sources
+      # GCC 5
+      - env: COMPILER=g++-5
+        os: linux
+        compiler: gcc
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "g++-5", "libc6-dbg"]
+              sources: *sources
+      # GCC 6
+      - env: COMPILER=g++-6
+        os: linux
+        compiler: gcc
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # Clang 3.5 (include g++-6 to have recent libs)
+      - env: COMPILER=clang++-3.5
+        os: linux
+        compiler: clang
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "clang-3.5", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # Clang 3.6
+      - env: COMPILER=clang++-3.6
+        os: linux
+        compiler: clang
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "clang-3.6", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # Clang 3.7
+      - env: COMPILER=clang++-3.7
+        os: linux
+        compiler: clang
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "clang-3.7", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # Clang 3.8
+      - env: COMPILER=clang++-3.8
+        os: linux
+        compiler: clang
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "clang-3.8", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # Clang 3.9
+      - env: COMPILER=clang++-3.9
+        os: linux
+        compiler: clang
+        addons:
+           apt:
+              packages: ["cmake", "cmake-data", "clang-3.9", "g++-6", "libc6-dbg"]
+              sources: *sources
+      # OS X Clang
+      - env: COMPILER=clang++
+        os: osx
+        compiler: clang
+
+install:
+  - export CXX="${COMPILER}"
+
+script:
+  - cmake -DCMAKE_INSTALL_PREFIX=local/ . && make && make test
+
+before_deploy:
+  - make install
+  - ls local/
+  - tar czf core.tar.gz local/
+
