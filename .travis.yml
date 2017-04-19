@@ -3,117 +3,38 @@ sudo: false
 language: c++
 
 notifications:
-   email: false
-
-# To be referenced later
-addons:
-   apt:
-      sources: &sources
-           - george-edison55-precise-backports # Cmake
-           - ubuntu-toolchain-r-test # Gcc versions
-           - llvm-toolchain-precise
-           - llvm-toolchain-precise-3.5
-           - llvm-toolchain-precise-3.6
-           - llvm-toolchain-precise-3.7
-           - llvm-toolchain-precise-3.8
-           - llvm-toolchain-precise-3.9
+  email: false
 
 matrix:
-   include:
-      # GCC 4.8
-      - env: COMPILER=g++-4.8
-        os: linux
-        compiler: gcc
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-4.8", "libc6-dbg"]
-              sources: *sources
-      # GCC 4.9
-      - env: COMPILER=g++-4.9
-        os: linux
-        compiler: gcc
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-4.9", "libc6-dbg"]
-              sources: *sources
-      # GCC 5
-      - env: COMPILER=g++-5
-        os: linux
-        compiler: gcc
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-5", "libc6-dbg"]
-              sources: *sources
-      # GCC 6
-      - env: COMPILER=g++-6
-        os: linux
-        compiler: gcc
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Clang targets include a recent g++ just to have a recent stdlib
-      # Clang 3.4 (default on precise)
-      - env: COMPILER=clang++
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Clang 3.5
-      - env: COMPILER=clang++-3.5
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "clang-3.5", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Clang 3.6
-      - env: COMPILER=clang++-3.6
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "clang-3.6", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Clang 3.7
-      - env: COMPILER=clang++-3.7
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "clang-3.7", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Clang 3.8
-      - env: COMPILER=clang++-3.8
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "clang-3.8", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # Clang 3.9
-      - env: COMPILER=clang++-3.9
-        os: linux
-        compiler: clang
-        addons:
-           apt:
-              packages: ["cmake", "cmake-data", "clang-3.9", "g++-6", "libc6-dbg"]
-              sources: *sources
-      # OS X Clang
-      - env: COMPILER=clang++
-        os: osx
-        compiler: clang
-      # Trusty target without modifications (g++ and clang++)
-      - env: COMPILER=g++
-        os: linux
-        dist: trusty
-        compiler: gcc
-      - env: COMPILER=clang++
-        os: linux
-        dist: trusty
-        compiler: clang
+  include:
+    # OS X Clang
+    - env: COMPILER=clang++ CONFIG=osx-clang
+      os: osx
+      compiler: clang
+    # Ubuntu trusty target (g++)
+    - env: COMPILER=g++ CONFIG=trusty-gcc
+      os: linux
+      dist: trusty
+      compiler: gcc
+    # Ubuntu trusty target (clang)
+    - env: COMPILER=clang++ CONFIG=trusty-clang
+      os: linux
+      dist: trusty
+      compiler: clang
+    # Ubuntu precise, using ppa for GCC 6 and CMake
+    - env: COMPILER=g++-6 CONFIG=precise-ppa-gcc
+      os: linux
+      compiler: gcc
+      addons:
+        apt:
+          packages:
+            - cmake
+            - cmake-data
+            - g++-6
+            - libc6-dbg
+          sources:
+            - george-edison55-precise-backports # Cmake
+            - ubuntu-toolchain-r-test # Gcc versions
 
 install:
   - export CXX="${COMPILER}"
@@ -124,5 +45,17 @@ script:
 before_deploy:
   - make install
   - ls local/
-  - tar czf core.tar.gz local/
+  - tar czf ${CONFIG}-travis-bpp-core.tar.gz local/
+
+deploy:
+  provider: releases
+  api_key:
+    secure: THHtuJ7doT/I6+cIqOIck/dMKgMPoSO6I7rH0HNFwQbZg/9DRW73RBXa93jJyEMfe6NRBtIkspauexKH60HUktvNnObl71bTf16cKWI0UqxkawwnCaag5fxFp9heWOGncnWSIs6NT5ES677zdSNYaGdrYgtQ7tO2eqTWXT72Db9/W4tpIDSFtFJoUdjeQB1GNjKnpzOEn+262og06+ZG3Q+/TaZpgJ3HC6h/QLhFAC4e9NPLAHkW1hJjEafUR/weR894guQ8y5CfOQzU1LppxVAUiAQnh1sAZ56YZU27zJtR9Zc5VW+Ajd9mS/U4RKRuJ5lUM6oveYceMIL7AeN+CSO/eNSA83KJUgrFPZGuxI2JdV1WwXLsJdZwlNKWuGF90F3m8qYsvY+TYGLFzSFVhI19PSQDptKNhwT/u10gnStc7nZYUUt3mV+yH+GMr8LIi6VJ24W2HOiHUOatGYtlLjM/5pazAssqA8C+MZNRGFQyfIh7RlopclKy1zB8D0Qo+G1E5wBL5DYCuOs51u9vyQdaGKILXoP6/ttA1GBQjz+YLqXbCWzEQ+3rve7k8NgAFBQbRiqv/aes/hCJzzWA9dJUDeKumgoc4sRiRBHQBN3/eteyNdApY6QWiqqDFkOJuGf4eOUUVzytx9//rh5wfIMUQFFDsLK6G2elPz0wUIk=
+  file: ${CONFIG}-travis-bpp-core.tar.gz
+  skip_cleanup: true
+  on:
+    repo: lereldarion/bpp-core
+    branch: fgindraud-with-travis
+    tags: true
+
 
