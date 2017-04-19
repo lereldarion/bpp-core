@@ -40,7 +40,7 @@ install:
   - export CXX="${COMPILER}"
 
 script:
-  - cmake -DCMAKE_INSTALL_PREFIX=local/ . && make && make test
+  - cmake -DCMAKE_INSTALL_PREFIX=local/ . && make -j2 && make test
 
 before_deploy:
   - make install
