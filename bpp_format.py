@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# Script that can be used to format the file headers of bpp.
+
 import os
 import sys
 import pathlib
@@ -175,8 +177,10 @@ class BppFile:
         self.license_lines = None
         self.creation_date = None
         self.last_modification_date = None
-        self.includes = []
+        self.rel_includes = []
+        self.abs_includes = []
         self.code_lines = []
+        self.has_doctest = False
 
     def add_author (self, author_first_last_name):
         # Remove author from list (exclude suffixes)
@@ -198,14 +202,16 @@ class BppFile:
         self.license_lines.append (" ".join (elements))
     def add_absolute_include_from_elements (self, elements, comment = None):
         include = " ".join (elements)
-        self.includes.append ((include, comment))
+        self.abs_includes.append ((include, comment))
         print ("Found absolute include: {}".format (include))
-    def add_relative_include_from_elements (self, elements):
+    def add_relative_include_from_elements (self, elements, comment = None):
         relative_original_path = pathlib.Path (" ".join (elements))
-        absolute_path = self.file_path.parent.joinpath (relative_original_path).resolve ()
-        cleaned_relative_path = absolute_path.relative_to (self.bpp_dir.parent)
-        self.includes.append ((cleaned_relative_path.as_posix (), comment))
-        print ("Found relative include: {} ; converted to absolute: {}".format (relative_original_path, cleaned_relative_path))
+        if relative_original_path.name == "doctest.h":
+            self.has_doctest = True
+            print ("Found doctest include")
+        else:
+            self.rel_includes.append ((relative_original_path, comment))
+            print ("Found relative include: {}".format (relative_original_path))
 
     # Common parsing functions
     def parse_file_header (self, file_parser):
@@ -252,7 +258,7 @@ class BppFile:
                     if file_parser.last_parsed == Element.Author:
                         self.add_authors_from_elements (comment.as_tokens ())
                         continue
-            if line.match_tok ("/*").match_eol () or line.match_tok ("#include") or line.match_tok ("#ifndef") or line.match_tok ("namespace"):
+            if line.match_tok ("/*").match_eol () or line.match_tok ("#include") or line.match_tok ("#ifndef") or line.match_tok ("namespace") or line.match_tok ("#define"):
                 file_parser.unparse_line ()
                 break # Found stuff of next steps, get out
             print ("Unexpected line (parsing file header): {}".format (line.text))
@@ -319,14 +325,19 @@ class BppFile:
             f.write ("*/\n")
             f.write ("\n")
     def write_file_includes (self, f):
-        self.includes.sort () # Sorted include files
-        def include_line (inc):
+        # Sorted include files
+        self.rel_includes.sort ()
+        self.abs_includes.sort ()
+        def include_line (inc, enclose_path):
             path, comment = inc
+            enclosed_path = enclose_path (path)
             if comment:
-                return "#include <{}> // {}\n".format (path, comment)
+                return "#include {} // {}\n".format (enclosed_path, comment)
             else:
-                return "#include <{}>\n".format (path)
-        f.writelines (include_line (inc) for inc in self.includes)
+                return "#include {}\n".format (enclosed_path)
+        f.writelines (include_line (inc, lambda p : "<{}>".format (p)) for inc in self.abs_includes)
+        f.write ("\n")
+        f.writelines (include_line (inc, lambda p : "\"{}\"".format (p)) for inc in self.rel_includes)
         f.write ("\n")
     def write_file_code (self, f):
         f.writelines ("{}\n".format (l) for l in self.code_lines)
@@ -362,7 +373,7 @@ class BppHeader (BppFile):
                 continue # Remove current header guard part 2 (must follow part 1)
             if line.match_toks ("#pragma", "once"):
                 file_parser.last_parsed = Element.HeaderGuardOnce
-                continue # Remove pragma once, will be put again
+                continue # Remove pragma once
             if self.parse_include_line (line):
                 file_parser.last_parsed = Element.Include
                 continue # Include line upgraded
@@ -392,7 +403,7 @@ class BppHeader (BppFile):
         with file_path.open ("w") as f:
             self.write_file_header (f)
             self.write_file_license (f)
-            f.write ("#pragma once\n")
+            # f.write ("#pragma once\n") If we want to use it...
             f.write ("#ifndef {}\n".format (self.header_guard))
             f.write ("#define {}\n".format (self.header_guard))
             f.write ("\n")
@@ -418,6 +429,9 @@ class BppCpp (BppFile):
             if self.parse_include_line (line):
                 file_parser.last_parsed = Element.Include
                 continue # Include line upgraded
+            if line.match_toks ("#define", "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"):
+                self.has_doctest = True
+                continue # Doctest define
             if line.match_toks ("namespace"):
                 file_parser.unparse_line ()
                 break # Start of code
@@ -430,6 +444,10 @@ class BppCpp (BppFile):
         with file_path.open ("w") as f:
             self.write_file_header (f)
             self.write_file_license (f)
+            if self.has_doctest:
+                f.write ("#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN\n")
+                f.write ("#include \"doctest.h\"\n")
+                f.write ("\n")
             self.write_file_includes (f)
             self.write_file_code (f)
 
@@ -444,34 +462,43 @@ def create_bpp_file_object (path, parse_it):
 if __name__ == "__main__":
     # Parse command line
     authors_to_add = []
-    in_place = False
+    overwrite = False
+    overwrite_checked = False
     update_modif_date = True
     create_from = None
     args = sys.argv[1:]
     while True:
         if len (args) >= 2:
-            if args[0] == "author":
+            if args[0] in ("author", "a"):
                 authors_to_add.append (args[1])
                 args = args[2:]
                 continue
-            if args[0] == "create_from":
+            if args[0] in ("create_from", "c"):
                 create_from = args[1]
                 args = args[2:]
                 continue
-        if len (args) >= 1 and args[0] == "in_place":
-            in_place = True
-            args = args[1:]
-            continue
-        if len (args) >= 1 and args[0] == "keep_date":
-            update_modif_date = False
-            args = args[1:]
-            continue
+        if len (args) >= 1:
+            if args[0] in ("overwrite", "O"):
+                overwrite = True
+                overwrite_checked = False
+                args = args[1:]
+                continue
+            if args[0] in ("overwrite_checked", "o"):
+                overwrite = False
+                overwrite_checked = True
+                args = args[1:]
+                continue
+            if args[0] == "keep_date":
+                update_modif_date = False
+                args = args[1:]
+                continue
         if len (args) == 1 and args[0] not in ("help", "-h", "--help"):
             break
         print ("bpp_format.py [args] <file>")
         print ("\t<file> : file to reformat")
         print ("\tauthor [name] : adds [name] as recent author of the file")
-        print ("\tin_place : write directly to <file> (default is writing in <file>.new.<file suffix>)")
+        print ("\toverwrite : write directly to <file> (default is writing in <file>.new.<file suffix>)")
+        print ("\toverwrite_checked : same as overwrite, but shows a diff and ask for confirmation")
         print ("\tkeep_date : do not update the last modification date")
         print ("\tcreate_from [file] : create a new file from [file] (license, date, guard)")
         sys.exit ()
@@ -491,7 +518,29 @@ if __name__ == "__main__":
         example_file = create_bpp_file_object (pathlib.Path (create_from), True)
         bpp_file.license_lines = example_file.license_lines
         bpp_file.creation_date = datetime.date.today ()
+        bpp_file.has_doctest = example_file.has_doctest
     # Write back
-    out_file_path = file_path if in_place else file_path.with_suffix (".new" + file_path.suffix)
+    out_file_path = file_path if overwrite else file_path.with_suffix (".new" + file_path.suffix)
     print ("Writing to {}".format (out_file_path))
     bpp_file.write_file (out_file_path)
+    # If overwrite_checked, show diff, ask before overwriting
+    if overwrite_checked:
+        import subprocess
+        diff_cmd = subprocess.Popen (
+                ["diff", "--color=always", "-U3", file_path.as_posix (), out_file_path.as_posix ()],
+                stdout=subprocess.PIPE)
+        less_cmd = subprocess.Popen (["less"], stdin=diff_cmd.stdout)
+        less_cmd.wait ()
+        diff_cmd.wait ()
+        print ("Overwrite ? [y/N]")
+        ans = input ()
+        if ans in ("y", "Y"):
+            print ("Renaming {} to {}".format (out_file_path, file_path))
+            out_file_path.rename (file_path)
+        else:
+            print ("Delete {} ? [y/N]".format (out_file_path))
+            ans2 = input ()
+            if ans2 in ("y", "Y"):
+                print ("Deleting {}".format (out_file_path))
+                out_file_path.unlink ()
+

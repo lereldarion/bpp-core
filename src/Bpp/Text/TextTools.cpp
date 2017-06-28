@@ -4,27 +4,27 @@
 //   Julien Dutheil
 //   Francois Gindraud (2017)
 // Created: 2003-08-08 12:57:50
-// Last modified: 2017-03-28
+// Last modified: 2017-06-27
 //
 
 /*
   Copyright or © or Copr. Bio++ Development Team, (November 17, 2004)
-
+  
   This software is a computer program whose purpose is to provide utilitary
   classes. This file belongs to the Bio++ Project.
-
+  
   This software is governed by the CeCILL license under French law and
   abiding by the rules of distribution of free software. You can use,
   modify and/ or redistribute the software under the terms of the CeCILL
   license as circulated by CEA, CNRS and INRIA at the following URL
   "http://www.cecill.info".
-
+  
   As a counterpart to the access to the source code and rights to copy,
   modify and redistribute granted by the license, users are provided only
   with a limited warranty and the software's author, the holder of the
   economic rights, and the successive licensors have only limited
   liability.
-
+  
   In this respect, the user's attention is drawn to the risks associated
   with loading, using, modifying and/or developing or reproducing the
   software by the user in light of its specific status of free software,
@@ -35,19 +35,19 @@
   requirements in conditions enabling the security of their systems and/or
   data to be ensured and, more generally, to use and operate it in the
   same conditions as regards security.
-
+  
   The fact that you are presently reading this means that you have had
   knowledge of the CeCILL license and that you accept its terms.
 */
 
-#include <Bpp/Exceptions.h>
-#include <Bpp/Numeric/IntegerTools.h>
-#include <Bpp/Text/TextTools.h>
-#include <Bpp/Utils/ForRange.h>
 #include <algorithm>
 #include <cctype>
 #include <iterator>
 #include <vector>
+
+#include "../Exceptions.h"
+#include "../Numeric/IntegerTools.h"
+#include "TextTools.h"
 
 namespace bpp
 {
@@ -287,7 +287,8 @@ namespace bpp
       auto nbChunks = IntegerTools::divideUp(s.size(), n);
       v.reserve(nbChunks);
       // Copy chunks by chunks, and add the last incomplete one if s.size () % n != 0
-      for (auto i : makeRange(IntegerTools::divideDown(s.size(), n)))
+      auto nbCopiedChunks = IntegerTools::divideDown(s.size(), n);
+      for (std::size_t i = 0; i < nbCopiedChunks; ++i)
         v.emplace_back(s.begin() + static_cast<diff_type>(i * n), s.begin() + static_cast<diff_type>((i + 1) * n));
       if (v.size() < nbChunks)
         v.emplace_back(s.begin() + static_cast<diff_type>(v.size() * n), s.end());
@@ -300,7 +301,7 @@ namespace bpp
     {
       std::string result;
       std::size_t blockDepth = 0;
-      for (auto i : makeRange(s.size()))
+      for (std::size_t i = 0; i < s.size(); ++i)
       {
         auto c = s[i];
         if (c == blockBeginning)
@@ -325,7 +326,9 @@ namespace bpp
 
     /******************************************************************************/
 
-    std::string removeSubstrings(const std::string& s, char blockBeginning, char blockEnding,
+    std::string removeSubstrings(const std::string& s,
+                                 char blockBeginning,
+                                 char blockEnding,
                                  std::vector<std::string>& exceptionsBeginning,
                                  std::vector<std::string>& exceptionsEnding)
     {
