@@ -38,6 +38,7 @@
  */
 
 #include "ParameterList.h"
+#include "ParameterExceptions.h"
 #include "../Text/StringTokenizer.h"
 
 using namespace bpp;
