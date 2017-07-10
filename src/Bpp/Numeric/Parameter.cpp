@@ -59,7 +59,7 @@ namespace bpp
                        bool attachConstraint,
                        double precision)
     : name_(name)
-    , constraint_(constraint, ConditionalDeleter<Constraint>{attachConstraint})
+    , constraint_(constraint, ConditionalOwnershipPolicy<Constraint>{attachConstraint})
   {
     // This may throw a ConstraintException:
     setValue(value);

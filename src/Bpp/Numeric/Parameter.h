@@ -102,8 +102,8 @@ namespace bpp
     std::string name_;      // Parameter name
     double value_{0.0};     // Parameter value
     double precision_{0.0}; // Precision needed for Parameter value
-    CopyUniquePtr<Constraint, ConditionalDeleter<Constraint>> constraint_{nullptr}; // A constraint on the value
-    std::vector<CopyUniquePtr<ParameterListener, ConditionalDeleter<ParameterListener>>> listeners_;
+    CopyUniquePtr<Constraint, ConditionalOwnershipPolicy<Constraint>> constraint_{nullptr}; // A constraint on the value
+    std::vector<CopyUniquePtr<ParameterListener, ConditionalOwnershipPolicy<ParameterListener>>> listeners_;
 
   public: // Class constructors and destructors:
     /// @brief Default contructor. Creates a parameter with no name, no constraint, and a value of 0.
@@ -204,7 +204,7 @@ namespace bpp
      */
     virtual void addParameterListener(ParameterListener* listener, bool attachListener = true)
     {
-      listeners_.emplace_back(listener, ConditionalDeleter<ParameterListener>{attachListener});
+      listeners_.emplace_back(listener, ConditionalOwnershipPolicy<ParameterListener>{attachListener});
     }
 
     /** @brief Remove all listeners with a given id from this parameter.

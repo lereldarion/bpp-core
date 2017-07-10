@@ -56,17 +56,52 @@ namespace bpp
     return std::unique_ptr<T>{new T(std::forward<Args>(args)...)};
   }
 
+  /** NonNull pointer annotation.
+   * This annotation has no effect, and just returns the Ptr type itself.
+   * It is used to indicate in code that a raw pointer value is supposed to be non null.
+   */
+  template<typename Ptr>
+  using NonNull = Ptr;
+
+  /** CopyUniquePtr default policy.
+   * This template class describes how CopyUniquePtr should manipulate its object.
+   * This include how to delete it : use std::default_delete<T>.
+   * And how to copy : use Clonable clone().
+   * Other policy can be used to specialize CopyUniquePtr.
+   */
+  template<typename T>
+  struct DefaultPtrPolicy : public std::default_delete<T>
+  {
+    static_assert(std::is_base_of<Clonable, T>::value, "DefaultPolicy requires type to derive from bpp::Clonable");
+
+    /// Use Clonable's clone() for copy
+    T* clone(T* ptr) const
+    {
+      if (ptr != nullptr)
+        return ptr->clone();
+      else
+        return nullptr;
+    }
+  };
+
   /** unique_ptr that calls clone from Clonable on copy.
    * This is a std::unique_ptr (same API, inherits from std::unique_ptr).
    * The constructor API is not exactly equivalent to unique_ptr, which requires ugly TMP with SFINAE.
    * TODO deprecate use of Clone and only use this as upgrade for legacy code ?
+   *
+   * CopyUniquePtr behavior is configured by its Policy parameter.
+   * The policy describes how to copy and delete the object, and must provide :
+   * \code{.cpp}
+   * T* clone (T* ptr); // Clone, must handle nullptr
+   * void operator () (T* ptr); // Delete object (same as unique_ptr Deleter)
+   * \endcode
+   * Note that the Policy is stored as the internal unique_ptr deleter.
    */
-  template<typename T, typename Deleter = std::default_delete<T>>
-  class CopyUniquePtr : public std::unique_ptr<T, Deleter>
+  template<typename T, typename Policy = DefaultPtrPolicy<T>>
+  class CopyUniquePtr : public std::unique_ptr<T, Policy>
   {
   private:
-    static_assert(std::is_base_of<Clonable, T>::value, "CopyUniquePtr requires type to derive from bpp::Clonable");
-    using UP = std::unique_ptr<T, Deleter>;
+    using UP = std::unique_ptr<T, Policy>;
 
   public:
     // Defaults
@@ -77,12 +112,12 @@ namespace bpp
 
     // Generate copy constructor and assignement using clone
     CopyUniquePtr(const CopyUniquePtr& other)
-      : UP(other ? other->clone() : nullptr, other.get_deleter())
+      : UP(other.get_deleter().clone(other.get()), other.get_deleter())
     {
     }
     CopyUniquePtr& operator=(const CopyUniquePtr& other)
     {
-      UP::operator=(UP(other ? other->clone() : nullptr, other.get_deleter()));
+      UP::operator=(UP(other.get_deleter().clone(other.get()), other.get_deleter()));
       return *this;
     }
 
@@ -95,11 +130,11 @@ namespace bpp
       : UP(p)
     {
     }
-    CopyUniquePtr(typename UP::pointer p, const Deleter& d) noexcept(std::is_nothrow_copy_constructible<Deleter>::value)
+    CopyUniquePtr(typename UP::pointer p, const Policy& d) noexcept(std::is_nothrow_copy_constructible<Policy>::value)
       : UP(p, d)
     {
     }
-    CopyUniquePtr(typename UP::pointer p, Deleter&& d) noexcept(std::is_nothrow_move_constructible<Deleter>::value)
+    CopyUniquePtr(typename UP::pointer p, Policy&& d) noexcept(std::is_nothrow_move_constructible<Policy>::value)
       : UP(p, std::move(d))
     {
     }
@@ -125,26 +160,38 @@ namespace bpp
     constexpr operator bool() const noexcept { return UP::operator bool(); }
   };
 
-  /** Conditional deleter for std::unique_ptr.
-   * Uses std::default_delete internally, to use its specialisation for arrays.
+  /** Conditional ownership policy for CopyUniquePtr.
+   * Allow a CopyUniquePtr to be a weird mix of unique_ptr and unsafe shared_ptr depending on ownsPointer.
+   * Used for Parameter constraints.
+   * TODO tag as deprecated to remove this weird semantic ?
    */
   template<typename T>
-  struct ConditionalDeleter : private std::default_delete<T>
+  struct ConditionalOwnershipPolicy : private DefaultPtrPolicy<T>
   {
-    /// Determines if the pointer is owned and should be deleted on destruction (mutable).
+    /// Determines if the pointer is owned and should be managed (copy / delete).
     bool ownsPointer;
 
-    /// Create a deleter (defaults to owning the pointer).
-    constexpr ConditionalDeleter(bool ownsPointer_ = true) noexcept
-      : std::default_delete<T>()
+    /// Create a policy (defaults to owning the pointer).
+    constexpr ConditionalOwnershipPolicy(bool ownsPointer_ = true) noexcept
+      : DefaultPtrPolicy<T>()
       , ownsPointer(ownsPointer_)
     {
     }
 
+    /// Copy
+    T* clone(T* ptr) const
+    {
+      if (ownsPointer)
+        return DefaultPtrPolicy<T>::clone(ptr);
+      else
+        return ptr; // Just share the pointer value
+    }
+
+    /// Deletion
     void operator()(T* ptr) const
     {
       if (ownsPointer)
-        std::default_delete<T>::operator()(ptr);
+        DefaultPtrPolicy<T>::operator()(ptr);
     }
   };
 }
