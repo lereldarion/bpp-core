@@ -581,7 +581,7 @@ namespace bpp
       if (pos>(int)nCol_)
         throw DimensionException("Table::addColumn.", pos, nCol_);
       if (pos==-1)
-        pos=nCol_;
+        pos=(int)nCol_;
 
       if (colNames_.size())
         throw TableColumnNamesException("Table::addColumn. Table has column names.");
@@ -630,7 +630,7 @@ namespace bpp
     /**
      * @brief Add a new column
      *
-     * @param stream the input stream
+     * @param st the input sting
      * @param sep The row delimiter
      * @param pos       The position optional (default : nb cols)
      * @param rowCol the indice of row where colnames are, starting
@@ -642,19 +642,19 @@ namespace bpp
       if (pos>(int)nCol_)
         throw DimensionException("Table::addColumn.", pos, nCol_);
       if (pos==-1)
-        pos=nCol_;
+        pos=(int)nCol_;
 
       StringTokenizer stok(st, sep, false, true);
       std::vector<std::string> row(stok.getTokens().begin(), stok.getTokens().end());
 
       if (row.size()!=nRow_+(rowCol>=0)?1:0)
-        throw BadIntegerException("Table::addColumn. Bad number of rows: ", row.size());
+        throw BadIntegerException("Table::addColumn. Bad number of rows: ", (int)row.size());
 
       std::vector<T> newColumn;
       
       for (size_t i=0; i<row.size(); i++)
       {
-        if (i==rowCol)
+        if ((int)i==rowCol)
         {
           std::string colName=row[i];
           if (find(colNames_.begin(), colNames_.end(), colName) != colNames_.end())
@@ -687,7 +687,7 @@ namespace bpp
     
     void setColumn(const std::vector<T>& newColumn, size_t pos)
     {
-      if (pos>=(int)nCol_)
+      if (pos>=nCol_)
         throw DimensionException("Table::setColumn.", pos, nCol_);
 
       if (newColumn.size() != nRow_)
@@ -1003,7 +1003,7 @@ namespace bpp
     /**
      * @brief Add a new row.
      *
-     * @param stream the input stream
+     * @param st the input string
      * @param sep The column delimiter
      * @param pos       The position optional (default : nb rows)
      * @param rowCol the indice of column where rownames are, starting
@@ -1015,19 +1015,19 @@ namespace bpp
       if (pos>(int)nRow_)
         throw DimensionException("Table::addRow.", pos, nRow_);
       if (pos==-1)
-        pos=nRow_;
+        pos=(int)nRow_;
 
       StringTokenizer stok(st, sep, false, true);
       std::vector<std::string> row(stok.getTokens().begin(), stok.getTokens().end());
 
       if (row.size()!=nCol_+(rowCol>=0)?1:0)
-        throw BadIntegerException("Table::addRow. Bad number of columns: ", row.size());
+        throw BadIntegerException("Table::addRow. Bad number of columns: ", (int)row.size());
 
       size_t id=0;
       
       for (size_t i=0; i<row.size(); i++)
       {
-        if (i==rowCol)
+        if ((int)i==rowCol)
         {
           std::string rowName=row[i];
           if (find(rowNames_.begin(), rowNames_.end(), rowName) != rowNames_.end())
@@ -1139,7 +1139,7 @@ namespace bpp
 
       bool frontNames=((byRow && data.hasRowNames()) || (!byRow && data.hasColumnNames()));
 
-      if (byRow && data.hasColumnNames() || (!byRow && data.hasRowNames()))
+      if ((byRow && data.hasColumnNames()) || (!byRow && data.hasRowNames()))
       { // Write header
         std::vector<std::string> names = (byRow?data.getColumnNames():data.getRowNames());
         
@@ -1198,12 +1198,12 @@ namespace bpp
       for (size_t i = 0; i < m; i++)
       {
         if (frontNames)
-          out << (byRow?data.getRowName(i):data.getColumnName(i) << sep);
+          out << (byRow?data.getRowName(i):data.getColumnName(i)) << sep;
         
         out << (byRow?data(i, 0):data(0, i));
         for (size_t j = 1; j < n; j++)
         {
-          out << sep << byRow?data(i, j):data(j, i);
+          out << sep << (byRow?data(i, j):data(j, i));
         }
         out.endLine();
       }
