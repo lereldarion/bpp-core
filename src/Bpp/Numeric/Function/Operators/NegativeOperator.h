@@ -1,11 +1,11 @@
 //
-// File: UniformDiscreteDistribution.cpp
+// File: NegativeOperator.h
 // Created by: Laurent Guéguen
-// Created on: April 2010
+// Created on: lundi 5 décembre 2016, à 23h 05
 //
 
 /*
-Copyright or © or Copr. Bio++ Development Team, (2010)
+Copyright or © or Copr. Bio++ Development Team, (November 17, 2004)
 
 This software is a computer program whose purpose is to provide classes
 for numerical calculus.
@@ -37,51 +37,62 @@ The fact that you are presently reading this means that you have had
 knowledge of the CeCILL license and that you accept its terms.
 */
 
-#include "UniformDiscreteDistribution.h"
-#include "../Random/RandomTools.h"
-#include "../../Utils/MapTools.h"
+#ifndef _NEGATIVE_OPERATOR_H_
+#define _NEGATIVE_OPERATOR_H_
 
-using namespace bpp;
+#include <memory>
 
-// From the STL:
-#include <cmath>
-
-using namespace std;
-
-/** Constructor: **************************************************************/
-
-UniformDiscreteDistribution::UniformDiscreteDistribution(unsigned int n, double min, double max) :
-  AbstractDiscreteDistribution(n,"Uniform."),
-  min_((min<max)?min:max),
-  max_((min<max)?max:min) 
+namespace bpp
 {
-  intMinMax_.setLowerBound(min_,false);
-  intMinMax_.setUpperBound(max_,false);
 
-  discretize();
-}
+/**
+ * @brief Negative value for an operator
+ *
+ */
 
-UniformDiscreteDistribution::UniformDiscreteDistribution(const UniformDiscreteDistribution& udd) : 
-  AbstractDiscreteDistribution(udd),
-  min_(udd.min_),
-  max_(udd.max_)
-{
-}
+  class NegativeOperator:
+    public Operator
+  {
+  private:
+    std::shared_ptr<Operator> son_;
+    
+  public:
 
-UniformDiscreteDistribution& UniformDiscreteDistribution::operator=(const UniformDiscreteDistribution& udd) 
-{
-  AbstractDiscreteDistribution::operator=(udd);
-  min_=udd.min_;
-  max_=udd.max_;
+    NegativeOperator(std::shared_ptr<Operator> son):
+      son_(son)
+    {
+    }
 
-  return *this;
-}
+    NegativeOperator* clone() const 
+    {
+      return new NegativeOperator(*this);
+    }
 
-UniformDiscreteDistribution::~UniformDiscreteDistribution() {}
+    double getValue() const
+    {
+      return - son_->getValue();
+    }
 
-/******************************************************************************/
+    double getFirstOrderDerivative(const std::string& variable) const
+    {
+      return - son_->getFirstOrderDerivative(variable);
+    }
+    
+    double getSecondOrderDerivative(const std::string& variable) const
+    {
+      return - son_->getSecondOrderDerivative(variable);
+    }
 
-void UniformDiscreteDistribution::fireParameterChanged(const ParameterList& parameters)
-{
-}
+    std::string output() const
+    {
+      return "-" + son_->output();
+    }
+    
+
+  };
+  
+
+} //end of namespace bpp.
+
+#endif  //_NEGATIVE_OPERATOR_H_
 
